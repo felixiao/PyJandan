@@ -1,3 +1,4 @@
-@echo off
-C:\Program Files\MongoDB\Server\3.2\bin\mongod -dbpath .\mongodb
+C:
+cd C:\Program Files\MongoDB\Server\3.4\bin
+mongod -dbpath F:\Project\PyJandan\mongodb
 pause

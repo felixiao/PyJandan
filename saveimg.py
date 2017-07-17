@@ -1,14 +1,14 @@
 # -*- coding: utf-8-*-
 import sys, requests, json, os, time
-from exif import ExifEditer
+#from exif import ExifEditer
 
 class SaveImage:
     def __init__(self, path):
         self.path = path
         self.session = requests.session()
-        self.exif = ExifEditer()
-        self.path = './ooxx/'
-        
+        #self.exif = ExifEditer()
+        #self.path = './ooxx/'
+
     def check_dir(self):
         if not os.path.exists(self.path):
             os.makedirs(self.path,exist_ok=True)

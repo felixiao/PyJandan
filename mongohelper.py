@@ -7,6 +7,14 @@ class MongoHelper:
         self.client = MongoClient()# MongoClient是线程安全的且内部维护了一个连接池，所以全局使用一个即可
         self.db = self.client['jandan']
 
+    def insert_one_error(self,data):
+        ooxx = self.db['error'].find_one({'_id':data['_id']})
+        if ooxx is None:
+            ooxx = self.db['error'].insert(data)
+
+    def get_all_error(self):
+        return self.db['error'].find()
+
     def get_db(self):
         return self.db
 
@@ -86,6 +94,7 @@ class MongoHelper:
 
     def clear(self):
         self.db['ooxx'].remove({})
+        self.db['error'].remove({})
 
     def read(self, data):
         self.insert_multi(data)

@@ -1,1 +1,2 @@
 python cleardb.py
+pause

@@ -3,6 +3,7 @@ import sys, requests
 from bs4 import BeautifulSoup
 from multiprocessing.dummy import Pool as ThreadPool
 from progressbar import ProgressBar
+from mongohelper import MongoHelper
 global bar
 class HtmlParser:
     def __init__(self,url='http://jandan.net/ooxx/'):
@@ -10,6 +11,7 @@ class HtmlParser:
         self.entry_url = url
         self.latest_page = self.get_latest_page()
         self.datas = []
+        self.errors = []
 
     def get_latest_page(self):
         html = BeautifulSoup(self.session.get(self.entry_url).content,'html.parser')
@@ -47,18 +49,49 @@ class HtmlParser:
         proxy = [{'http':'http://183.245.146.39:139'},
                  {'http':'http://182.88.29.70:8123'}]
         try:
-            resp = self.session.get(self.entry_url+'page-'+page,timeout=5,headers=header,proxies=proxy).content
+            print('parser @ '+page)
+            resp = self.session.get(self.entry_url+'page-'+page).content
+
         except requests.exceptions.ConnectionError:
-            sys.stdout.write(' ' * 79 + '\r')
-            sys.stdout.write('ConnectionError @ '+page)
+            # sys.stdout.write(' ' * 79 + '\r')
+            # sys.stdout.write('ConnectionError @ '+page)
+            print('ConnectionError @ '+page)
+            data = {
+                'author':'',
+                'page':page,
+                '_id':0,
+                'error':'ConnectionError'
+            }
+            self.mongo.insert_one_error(data)
             return
         except requests.exceptions.ReadTimeout:
-            sys.stdout.write(' ' * 79 + '\r')
-            sys.stdout.write('ReadTimeout @ '+page)
+            # sys.stdout.write(' ' * 79 + '\r')
+            # sys.stdout.write('ReadTimeout @ '+page)
+            print('ReadTimeout @ '+page)
+            data = {
+                'author':'',
+                'page':page,
+                '_id':0,
+                'error':'ReadTimeout'
+            }
+            self.errors.append(data)
+            return
+        if resp is None:
+            print('Null @ '+page)
+            data = {
+                'author':'',
+                'page':page,
+                '_id':0,
+                'error':'Null'
+            }
+            self.errors.append(data)
             return
         html = BeautifulSoup(resp,'html.parser')
         div_row = html.find_all('div',class_='row')
         div_text = html.find_all('div',class_='text')
+        div_vote = html.find_all('div',class_="jandan-vote")
+        # with open('p-'+page+'.html', 'wb') as htmlfile:
+        #     htmlfile.write(resp)
         count = len(div_row)
         for i in range(0,count):
             author = div_row[i].select("div.author > strong")[0].string
@@ -67,11 +100,19 @@ class HtmlParser:
             try:
                 oo = 0
                 xx = 0
-                oo = int(div_text[i].select('div.vote > span')[1].string)
-                xx = int(div_text[i].select('div.vote > span')[2].string)
+                oo = int(div_vote[i].select('span.tucao-like-container > span')[0].string)
+                xx = int(div_vote[i].select('span.tucao-unlike-container > span')[0].string)
             except Exception:
-                sys.stdout.write(' ' * 79 + '\r')
-                sys.stdout.write('Error Int @ {0}-{1}'.format(page, Id))
+                # sys.stdout.write(' ' * 79 + '\r')
+                # sys.stdout.write('Error Int @ {0}-{1}'.format(page, Id))
+                print('Error Int @ {0}-{1}'.format(page, Id))
+                data = {
+                    'author':u''+author,
+                    'page':page,
+                    '_id':Id,
+                    'error':'Error Int'
+                }
+                self.errors.append(data)
 
             rate = 0
             if oo+xx > 0:
@@ -101,10 +142,20 @@ class HtmlParser:
                     url = url.replace('/mw600/','/large/',1)
                     url = url.replace('/small/','/large/',1)
                     url = url.replace('/thumbnail/','/large/',1)
+                    url = url.replace('http://','//',1)
+                    url = url.replace('//','http://',1)
                     urls.append(url)
                 except KeyError:
-                    sys.stdout.write(' ' * 79 + '\r')
-                    sys.stdout.write('KeyError : {0} @ {1}-{2}'.format(img, page, Id))
+                    # sys.stdout.write(' ' * 79 + '\r')
+                    # sys.stdout.write('KeyError : {0} @ {1}-{2}'.format(img, page, Id))
+                    print('KeyError : {0} @ {1}-{2}'.format(img, page, Id))
+                    data = {
+                        'author':u''+author,
+                        'page':page,
+                        '_id':Id,
+                        'error':'KeyError'
+                    }
+                    self.errors.append(data)
             if len(urls) <= 0:
                 continue
 
@@ -117,17 +168,19 @@ class HtmlParser:
                     if ext != 'jpg' and ext !='jpeg' and ext != 'png' and ext != 'gif' and ext != 'bmp' and ext != 'tiff':
                         # sys.stdout.write(' ' * 79 + '\r')
                         # sys.stdout.write('Error ext : {0} @ {1}-{2}'.format(ext, page, Id))
+                        print('Error ext : {0} @ {1}-{2}'.format(ext, page, Id))
                         ext = 'jpg'
                         # continue
                 except Exception:
                     # sys.stdout.write(' ' * 79 + '\r')
                     # sys.stdout.write('Error Img @ {0}-{1}'.format(page,Id))
+                    print('Error Img @ {0}-{1}'.format(page,Id))
                     ext = 'jpg'
                     # continue
                 if len(urls) > 1:
-                    filename = '{0}-{1}.{2}'.format(filename,num,ext)
+                    filenameN = '{0}-{1}.{2}'.format(filename,num,ext)
                 else:
-                    filename = '{0}.{1}'.format(filename,ext)
+                    filenameN = '{0}.{1}'.format(filename,ext)
                 data = {
                     'author':u''+author,
                     'page':page,
@@ -136,16 +189,20 @@ class HtmlParser:
                     'xx':xx,
                     'rate':rate,
                     'rating': rating,
-                    'filename':filename,
+                    'filename':filenameN,
                     'ext':ext,
                     'url':url
                 }
                 self.datas.append(data)
                 # sys.stdout.write(' ' * 79 + '\r')
                 # sys.stdout.write('Added '+data['filename'])
+                print('Added '+data['filename'])
                 num += 1
         bar.move()
         bar.log('{0:0>4}'.format(page))
 
     def get_data(self):
         return self.datas
+
+    def get_errors(self):
+        return self.errors

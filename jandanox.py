@@ -27,7 +27,7 @@ def download_image(ooxx):
 def download(only_new=True):
     global save_Img, bar, errors
     errors = []
-    save_Img = SaveImage('C:/Users/Felix/Pictures/ooxx/')
+    save_Img = SaveImage('D:\Project\PyJandan\PIC\OOXX')
     collection = mongo.get_datas_by('status',3)
     for img in collection:
         save_Img.delete_old(img)
@@ -53,8 +53,8 @@ if __name__ == '__main__':
     start = time.time()
     mongo = MongoHelper()
     parser = HtmlParser()
-    parser.parse(range=[1800,2214])
+    parser.parse(range=[1,20])
     mongo.read(parser.get_data())
-    download()
+    download(False)
     end = time.time()
     print('cost '+str(end-start))
